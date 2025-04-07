@@ -20,10 +20,13 @@ import (
 // @host      localhost:8000
 // @BasePath  /api
 
-// @securityDefinitions.apikey BearerAuth
-// @in header
-// @name Authorization
-// @description Type "Bearer" followed by a space and JWT token.
+// @securityDefinitions.apikey  BearerAuth
+// @in                         header
+// @name                       Authorization
+// @description               Bearer token authentication
+// @scheme                    bearer
+
+// @Security  BearerAuth
 
 func init() {
 	swag.Register(swag.Name, &s{})
@@ -41,6 +44,15 @@ func (s *s) ReadDoc() string {
 		},
 		"host": "localhost:8000",
 		"basePath": "/api",
+		"schemes": ["http"],
+		"securityDefinitions": {
+			"BearerAuth": {
+				"type": "apiKey",
+				"name": "Authorization",
+				"in": "header",
+				"description": "Bearer token authentication"
+			}
+		},
 		"paths": {
 			"/auth/register": {
 				"post": {
@@ -140,6 +152,200 @@ func (s *s) ReadDoc() string {
 						},
 						"500": {
 							"description": "Sunucu hatası"
+						}
+					}
+				}
+			},
+			"/books": {
+				"get": {
+					"security": [
+						{
+							"BearerAuth": []
+						}
+					],
+					"tags": ["books"],
+					"summary": "Kitapları listele",
+					"description": "Kullanıcının kitaplarını listeler",
+					"produces": ["application/json"],
+					"responses": {
+						"200": {
+							"description": "Başarılı",
+							"schema": {
+								"type": "object",
+								"properties": {
+									"status": {
+										"type": "string",
+										"example": "success"
+									},
+									"message": {
+										"type": "string",
+										"example": "Kitaplar başarıyla getirildi"
+									},
+									"data": {
+										"type": "array",
+										"items": {
+											"$ref": "#/definitions/BookResponse"
+										}
+									}
+								}
+							}
+						},
+						"401": {
+							"description": "Yetkilendirme hatası"
+						},
+						"500": {
+							"description": "Sunucu hatası"
+						}
+					}
+				},
+				"post": {
+					"security": [
+						{
+							"BearerAuth": []
+						}
+					],
+					"tags": ["books"],
+					"summary": "Kitap ekleme",
+					"description": "Yeni bir kitap ve özet ekler",
+					"consumes": ["application/json"],
+					"produces": ["application/json"],
+					"parameters": [{
+						"in": "body",
+						"name": "book",
+						"description": "Kitap bilgileri",
+						"required": true,
+						"schema": {
+							"$ref": "#/definitions/Book"
+						}
+					}],
+					"responses": {
+						"201": {
+							"description": "Kitap başarıyla eklendi",
+							"schema": {
+								"$ref": "#/definitions/BookResponse"
+							}
+						},
+						"400": {
+							"description": "Geçersiz istek"
+						},
+						"401": {
+							"description": "Yetkilendirme hatası"
+						},
+						"500": {
+							"description": "Sunucu hatası"
+						}
+					}
+				}
+			},
+			"/books/{id}": {
+				"get": {
+					"security": [
+						{
+							"BearerAuth": []
+						}
+					],
+					"tags": ["books"],
+					"summary": "Kitap detayı",
+					"description": "Belirtilen kitabın detaylarını getirir",
+					"produces": ["application/json"],
+					"parameters": [{
+						"in": "path",
+						"name": "id",
+						"description": "Kitap ID",
+						"required": true,
+						"type": "integer"
+					}],
+					"responses": {
+						"200": {
+							"description": "Başarılı",
+							"schema": {
+								"$ref": "#/definitions/BookResponse"
+							}
+						},
+						"400": {
+							"description": "Geçersiz istek"
+						},
+						"401": {
+							"description": "Yetkilendirme hatası"
+						},
+						"404": {
+							"description": "Kitap bulunamadı"
+						}
+					}
+				},
+				"put": {
+					"security": [
+						{
+							"BearerAuth": []
+						}
+					],
+					"tags": ["books"],
+					"summary": "Kitap güncelleme",
+					"description": "Belirtilen kitabı günceller",
+					"consumes": ["application/json"],
+					"produces": ["application/json"],
+					"parameters": [{
+						"in": "path",
+						"name": "id",
+						"description": "Kitap ID",
+						"required": true,
+						"type": "integer"
+					}, {
+						"in": "body",
+						"name": "book",
+						"description": "Kitap bilgileri",
+						"required": true,
+						"schema": {
+							"$ref": "#/definitions/Book"
+						}
+					}],
+					"responses": {
+						"200": {
+							"description": "Kitap başarıyla güncellendi",
+							"schema": {
+								"$ref": "#/definitions/BookResponse"
+							}
+						},
+						"400": {
+							"description": "Geçersiz istek"
+						},
+						"401": {
+							"description": "Yetkilendirme hatası"
+						},
+						"404": {
+							"description": "Kitap bulunamadı"
+						}
+					}
+				},
+				"delete": {
+					"security": [
+						{
+							"BearerAuth": []
+						}
+					],
+					"tags": ["books"],
+					"summary": "Kitap silme",
+					"description": "Belirtilen kitabı siler",
+					"produces": ["application/json"],
+					"parameters": [{
+						"in": "path",
+						"name": "id",
+						"description": "Kitap ID",
+						"required": true,
+						"type": "integer"
+					}],
+					"responses": {
+						"200": {
+							"description": "Kitap başarıyla silindi"
+						},
+						"400": {
+							"description": "Geçersiz istek"
+						},
+						"401": {
+							"description": "Yetkilendirme hatası"
+						},
+						"404": {
+							"description": "Kitap bulunamadı"
 						}
 					}
 				}
@@ -297,6 +503,102 @@ func (s *s) ReadDoc() string {
 					"expires_in": {
 						"type": "integer",
 						"example": 3600
+					}
+				}
+			},
+			"Book": {
+				"type": "object",
+				"required": ["title", "author", "summary", "read_date", "rating"],
+				"properties": {
+					"title": {
+						"type": "string",
+						"example": "1984"
+					},
+					"author": {
+						"type": "string",
+						"example": "George Orwell"
+					},
+					"summary": {
+						"type": "string",
+						"example": "Distopik bir gelecekte geçen, gözetim toplumunu eleştiren bir roman."
+					},
+					"read_date": {
+						"type": "string",
+						"format": "date-time",
+						"example": "2024-04-07T00:00:00Z"
+					},
+					"rating": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 5,
+						"example": 5
+					},
+					"notes": {
+						"type": "string",
+						"example": "Etkileyici bir distopya klasiği"
+					}
+				}
+			},
+			"BookResponse": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "integer",
+						"example": 1
+					},
+					"title": {
+						"type": "string",
+						"example": "1984"
+					},
+					"author": {
+						"type": "string",
+						"example": "George Orwell"
+					},
+					"summary": {
+						"type": "string",
+						"example": "Distopik bir gelecekte geçen, gözetim toplumunu eleştiren bir roman."
+					},
+					"read_date": {
+						"type": "string",
+						"format": "date-time",
+						"example": "2024-04-07T00:00:00Z"
+					},
+					"rating": {
+						"type": "integer",
+						"example": 5
+					},
+					"notes": {
+						"type": "string",
+						"example": "Etkileyici bir distopya klasiği"
+					},
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"updated_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"user": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "integer",
+								"example": 1
+							},
+							"first_name": {
+								"type": "string",
+								"example": "John"
+							},
+							"last_name": {
+								"type": "string",
+								"example": "Doe"
+							},
+							"username": {
+								"type": "string",
+								"example": "johndoe"
+							}
+						}
 					}
 				}
 			}

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	"go-api/config"
@@ -36,12 +37,12 @@ func generateTokens(userID uint) (*models.TokenResponse, error) {
 	})
 
 	// Token'ları imzala
-	accessTokenString, err := accessToken.SignedString([]byte("secret"))
+	accessTokenString, err := accessToken.SignedString([]byte(os.Getenv("JWT_SECRET_KEY")))
 	if err != nil {
 		return nil, err
 	}
 
-	refreshTokenString, err := refreshToken.SignedString([]byte("refresh_secret"))
+	refreshTokenString, err := refreshToken.SignedString([]byte(os.Getenv("JWT_REFRESH_SECRET_KEY")))
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +249,7 @@ func RefreshToken(c *gin.Context) {
 
 	// Refresh token'ı doğrula
 	token, err := jwt.ParseWithClaims(refreshRequest.RefreshToken, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte("refresh_secret"), nil
+		return []byte(os.Getenv("JWT_REFRESH_SECRET_KEY")), nil
 	})
 
 	if err != nil {

@@ -1,8 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"time"
+	"os"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -13,12 +14,13 @@ import (
 	_ "go-api/docs" // docs klasörü için import
 
 	"go-api/config"
+	"go-api/models"
 	"go-api/routes"
 )
 
-// @title           Go API Auth Example
+// @title           Go API
 // @version         1.0
-// @description     Bu API, JWT tabanlı kimlik doğrulama sistemi örneğidir.
+// @description     Go API örneği
 // @termsOfService  http://swagger.io/terms/
 
 // @contact.name   API Support
@@ -36,6 +38,7 @@ import (
 // @in header
 // @name Authorization
 // @description Type "Bearer" followed by a space and JWT token.
+
 func main() {
 	// .env dosyasını yükle
 	err := godotenv.Load()
@@ -43,19 +46,25 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	config.ConnectDatabase()
+	// Komut satırı argümanlarını kontrol et
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		config.ConnectDatabase()
+		config.DB.AutoMigrate(&models.User{}, &models.Book{})
+		fmt.Println("Veritabanı tabloları oluşturuldu!")
+		return
+	}
 
 	router := gin.Default()
 
 	// CORS ayarları
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: false,
-		MaxAge:           12 * time.Hour,
-	}))
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowOrigins = []string{"*"}
+	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	corsConfig.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
+	router.Use(cors.New(corsConfig))
+
+	// Veritabanı bağlantısı
+	config.ConnectDatabase()
 
 	// Swagger endpoint'i
 	url := ginSwagger.URL("http://localhost:8000/swagger/doc.json") // Swagger JSON dosyasının URL'i
@@ -63,10 +72,11 @@ func main() {
 
 	// Route'ları ayarla
 	routes.SetupAuthRoutes(router)
+	routes.SetupBookRoutes(router)
 
 	// Port ayarı
 	port := ":8000"
-	log.Printf("Uygulama %s portunda başlatılıyor...", port)
+	fmt.Printf("Uygulama %s portunda başlatılıyor...\n", port)
 	if err := router.Run(port); err != nil {
 		log.Fatalf("Uygulama başlatılamadı: %v", err)
 	}
