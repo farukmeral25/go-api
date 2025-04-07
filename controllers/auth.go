@@ -270,8 +270,19 @@ func RefreshToken(c *gin.Context) {
 		return
 	}
 
+	// Kullanıcıyı veritabanından bul
+	var user models.User
+	if err := config.DB.First(&user, claims.UserID).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  "error",
+			"message": "Kullanıcı bulunamadı",
+			"error":   err.Error(),
+		})
+		return
+	}
+
 	// Yeni token'ları oluştur
-	tokens, err := generateTokens(claims.UserID)
+	tokens, err := generateTokens(user.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "error",
@@ -281,9 +292,36 @@ func RefreshToken(c *gin.Context) {
 		return
 	}
 
+	// Kullanıcı bilgilerini hazırla
+	userResponse := struct {
+		ID        uint      `json:"id"`
+		FirstName string    `json:"first_name"`
+		LastName  string    `json:"last_name"`
+		Username  string    `json:"username"`
+		Email     string    `json:"email"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+	}{
+		ID:        user.ID,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Username:  user.Username,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Token başarıyla yenilendi",
-		"data":    tokens,
+		"data": gin.H{
+			"user": userResponse,
+			"tokens": gin.H{
+				"access_token":  tokens.AccessToken,
+				"refresh_token": tokens.RefreshToken,
+				"token_type":    tokens.TokenType,
+				"expires_in":    tokens.ExpiresIn,
+			},
+		},
 	})
 }
