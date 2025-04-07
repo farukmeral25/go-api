@@ -108,6 +108,41 @@ func (s *s) ReadDoc() string {
 						}
 					}
 				}
+			},
+			"/auth/refresh": {
+				"post": {
+					"tags": ["auth"],
+					"summary": "Token yenileme",
+					"description": "Refresh token ile yeni bir access token alır",
+					"consumes": ["application/json"],
+					"produces": ["application/json"],
+					"parameters": [{
+						"in": "body",
+						"name": "refresh_token",
+						"description": "Refresh token",
+						"required": true,
+						"schema": {
+							"$ref": "#/definitions/RefreshTokenRequest"
+						}
+					}],
+					"responses": {
+						"200": {
+							"description": "Token başarıyla yenilendi",
+							"schema": {
+								"$ref": "#/definitions/TokenResponse"
+							}
+						},
+						"400": {
+							"description": "Geçersiz istek"
+						},
+						"401": {
+							"description": "Geçersiz refresh token"
+						},
+						"500": {
+							"description": "Sunucu hatası"
+						}
+					}
+				}
 			}
 		},
 		"definitions": {
@@ -149,7 +184,15 @@ func (s *s) ReadDoc() string {
 						"example": "Kullanıcı başarıyla oluşturuldu"
 					},
 					"data": {
-						"$ref": "#/definitions/UserResponse"
+						"type": "object",
+						"properties": {
+							"user": {
+								"$ref": "#/definitions/UserResponse"
+							},
+							"tokens": {
+								"$ref": "#/definitions/TokenResponse"
+							}
+						}
 					}
 				}
 			},
@@ -216,11 +259,44 @@ func (s *s) ReadDoc() string {
 					"data": {
 						"type": "object",
 						"properties": {
-							"token": {
-								"type": "string",
-								"example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+							"user": {
+								"$ref": "#/definitions/UserResponse"
+							},
+							"tokens": {
+								"$ref": "#/definitions/TokenResponse"
 							}
 						}
+					}
+				}
+			},
+			"RefreshTokenRequest": {
+				"type": "object",
+				"required": ["refresh_token"],
+				"properties": {
+					"refresh_token": {
+						"type": "string",
+						"example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+					}
+				}
+			},
+			"TokenResponse": {
+				"type": "object",
+				"properties": {
+					"access_token": {
+						"type": "string",
+						"example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+					},
+					"refresh_token": {
+						"type": "string",
+						"example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+					},
+					"token_type": {
+						"type": "string",
+						"example": "Bearer"
+					},
+					"expires_in": {
+						"type": "integer",
+						"example": 3600
 					}
 				}
 			}

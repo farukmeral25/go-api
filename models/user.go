@@ -9,11 +9,11 @@ import (
 
 type User struct {
 	ID        uint           `json:"id" gorm:"primarykey;autoIncrement"`
-	FirstName string         `json:"first_name" binding:"required"`
-	LastName  string         `json:"last_name" binding:"required"`
-	Username  string         `json:"username" binding:"required" gorm:"unique"`
-	Password  string         `json:"-" binding:"required"`
-	Email     string         `json:"email" binding:"required,email" gorm:"unique"`
+	FirstName string         `json:"first_name" binding:"required" form:"first_name"`
+	LastName  string         `json:"last_name" binding:"required" form:"last_name"`
+	Username  string         `json:"username" binding:"required" gorm:"unique" form:"username"`
+	Password  string         `json:"password" binding:"required" form:"password"`
+	Email     string         `json:"email" binding:"required,email" gorm:"unique" form:"email"`
 	CreatedAt time.Time      `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`

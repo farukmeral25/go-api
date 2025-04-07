@@ -11,6 +11,49 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+const (
+	accessTokenDuration  = time.Hour
+	refreshTokenDuration = time.Hour * 24 * 7 // 7 gün
+)
+
+func generateTokens(userID uint) (*models.TokenResponse, error) {
+	// Access token oluştur
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, models.TokenClaims{
+		UserID: userID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(accessTokenDuration)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	})
+
+	// Refresh token oluştur
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, models.TokenClaims{
+		UserID: userID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(refreshTokenDuration)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	})
+
+	// Token'ları imzala
+	accessTokenString, err := accessToken.SignedString([]byte("secret"))
+	if err != nil {
+		return nil, err
+	}
+
+	refreshTokenString, err := refreshToken.SignedString([]byte("refresh_secret"))
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.TokenResponse{
+		AccessToken:  accessTokenString,
+		RefreshToken: refreshTokenString,
+		TokenType:    "Bearer",
+		ExpiresIn:    int64(accessTokenDuration.Seconds()),
+	}, nil
+}
+
 // Register godoc
 // @Summary      Kullanıcı kaydı
 // @Description  Yeni bir kullanıcı kaydı oluşturur
@@ -54,6 +97,17 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	// Token'ları oluştur
+	tokens, err := generateTokens(user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Token oluşturulamadı",
+			"error":   err.Error(),
+		})
+		return
+	}
+
 	// Kullanıcı bilgilerini döndür (şifre hariç)
 	response := struct {
 		ID        uint      `json:"id"`
@@ -76,7 +130,15 @@ func Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"status":  "success",
 		"message": "Kullanıcı başarıyla oluşturuldu",
-		"data":    response,
+		"data": gin.H{
+			"user": response,
+			"tokens": gin.H{
+				"access_token":  tokens.AccessToken,
+				"refresh_token": tokens.RefreshToken,
+				"token_type":    tokens.TokenType,
+				"expires_in":    tokens.ExpiresIn,
+			},
+		},
 	})
 }
 
@@ -125,14 +187,8 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// JWT token oluştur
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": user.ID,
-		"exp": time.Now().Add(time.Hour * 24).Unix(),
-	})
-
-	// Token'ı imzala
-	tokenString, err := token.SignedString([]byte("secret"))
+	// Token'ları oluştur
+	tokens, err := generateTokens(user.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "error",
@@ -147,7 +203,6 @@ func Login(c *gin.Context) {
 		"status":  "success",
 		"message": "Giriş başarılı",
 		"data": gin.H{
-			"token": tokenString,
 			"user": gin.H{
 				"id":         user.ID,
 				"first_name": user.FirstName,
@@ -157,6 +212,78 @@ func Login(c *gin.Context) {
 				"created_at": user.CreatedAt,
 				"updated_at": user.UpdatedAt,
 			},
+			"tokens": gin.H{
+				"access_token":  tokens.AccessToken,
+				"refresh_token": tokens.RefreshToken,
+				"token_type":    tokens.TokenType,
+				"expires_in":    tokens.ExpiresIn,
+			},
 		},
+	})
+}
+
+// RefreshToken godoc
+// @Summary      Token yenileme
+// @Description  Refresh token ile yeni bir access token alır
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        refresh_token  body      models.RefreshTokenRequest  true  "Refresh token"
+// @Success      200           {object}  models.TokenResponse
+// @Failure      400           {object}  map[string]interface{}
+// @Failure      401           {object}  map[string]interface{}
+// @Failure      500           {object}  map[string]interface{}
+// @Router       /api/auth/refresh [post]
+func RefreshToken(c *gin.Context) {
+	var refreshRequest models.RefreshTokenRequest
+
+	if err := c.ShouldBindJSON(&refreshRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "Geçersiz istek",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// Refresh token'ı doğrula
+	token, err := jwt.ParseWithClaims(refreshRequest.RefreshToken, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte("refresh_secret"), nil
+	})
+
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  "error",
+			"message": "Geçersiz refresh token",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	claims, ok := token.Claims.(*models.TokenClaims)
+	if !ok || !token.Valid {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  "error",
+			"message": "Geçersiz refresh token",
+			"error":   "Token doğrulanamadı",
+		})
+		return
+	}
+
+	// Yeni token'ları oluştur
+	tokens, err := generateTokens(claims.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Token oluşturulamadı",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Token başarıyla yenilendi",
+		"data":    tokens,
 	})
 }
